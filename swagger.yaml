@@ -1,0 +1,228 @@
+openapi: 3.0.0
+info:
+  title: Arvog API Documentation
+  description: API documentation for User, Category, Product & Bulk Upload Management
+  version: 1.0.0
+
+servers:
+  - url: http://localhost:5000/api
+    description: Local API Server
+
+paths:
+  /auth/register:
+    post:
+      summary: User Registration with S3 Upload
+      tags: [Auth]
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required:
+                - name
+                - email
+                - password
+              properties:
+                name:
+                  type: string
+                email:
+                  type: string
+                password:
+                  type: string
+                phone:
+                  type: string
+                role:
+                  type: string
+                profilePhoto:
+                  type: string
+                  format: binary
+      responses:
+        '201':
+          description: Successfully registered
+        '400':
+          description: User already exists
+
+  /auth/login:
+    post:
+      summary: User Login
+      tags: [Auth]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                email:
+                  type: string
+                password:
+                  type: string
+      responses:
+        '200':
+          description: Login success returns token
+        '401':
+          description: Invalid credentials
+
+  /category:
+    post:
+      summary: Create a Category
+      tags: [Category]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+      responses:
+        '201':
+          description: Successfully created
+    get:
+      summary: List all Categories
+      tags: [Category]
+      responses:
+        '200':
+          description: All categories fetched
+
+  /category/{id}:
+    put:
+      summary: Update Category
+      tags: [Category]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+      responses:
+        '200':
+          description: Category Updated
+    delete:
+      summary: Delete Category
+      tags: [Category]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Category Deleted
+
+  /product:
+    post:
+      summary: Create a Product
+      tags: [Product]
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                price:
+                  type: number
+                categoryId:
+                  type: integer
+                image:
+                  type: string
+                  format: binary
+      responses:
+        '201':
+          description: Product created
+
+    get:
+      summary: Get all Products
+      tags: [Product]
+      responses:
+        '200':
+          description: Product list returned
+
+  /product/{id}:
+    put:
+      summary: Update Product
+      tags: [Product]
+      parameters:
+        - name: id
+          in: path
+          schema:
+            type: integer
+          required: true
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                price:
+                  type: number
+                categoryId:
+                  type: integer
+                image:
+                  type: string
+                  format: binary
+      responses:
+        '200':
+          description: Product updated
+
+    delete:
+      summary: Delete Product
+      tags: [Product]
+      parameters:
+        - name: id
+          in: path
+          schema:
+            type: integer
+          required: true
+      responses:
+        '200':
+          description: Product deleted
+
+  /bulk-upload:
+    post:
+      summary: Upload CSV for bulk product insertion
+      tags: [Bulk Upload]
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                file:
+                  type: string
+                  format: binary
+      responses:
+        '202':
+          description: Job started returns jobId
+
+  /bulk-status/{jobId}:
+    get:
+      summary: Check bulk job status
+      tags: [Bulk Upload]
+      parameters:
+        - in: path
+          name: jobId
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Status returned
