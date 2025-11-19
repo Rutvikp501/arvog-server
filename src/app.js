@@ -27,7 +27,7 @@ app.use("/uploads", express.static("uploads"));
 app.get("/", (req, res) => {
   res.json({ message: "API is running..." });
 });
-app.use("/api/users", userRoutes);
+app.use("/api/user", userRoutes);
 app.use("/api/category", categoryRoutes);
 app.use("/api/products", productRoutes);
 

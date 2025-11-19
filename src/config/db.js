@@ -22,8 +22,10 @@ export const PGConnection = async () => {
   try {
     
     await sequelize.authenticate();
-    console.log("📦 DATABASE CONNECTED (Sequelize + Postgres)");
-  } catch (err) {
-    console.error("❌ DB connection failed:", err);
+    console.log("PostgreSQL connected successfully.");
+
+    await sequelize.sync({ alter: true }); 
+  } catch (error) {
+    console.error("Unable to connect to the database:", error);
   }
 };

@@ -5,6 +5,7 @@ import { Op } from "sequelize";
 export const createCategory = async (req, res) => {
   try {
     const { name } = req.body;
+console.log(req.body);
 
     const exist = await Category.findOne({ where: { name } });
     if (exist) return res.status(400).json({ message: "Category already exists" });
