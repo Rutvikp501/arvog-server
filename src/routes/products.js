@@ -5,11 +5,10 @@ import {
   getAllProducts,
   updateProduct,
   deleteProduct,
-  startBulkUpload,
-  getBulkStatus,
   downloadProductCSV,
   downloadProductExcel,
   bulkUploadProducts,
+  getBulkStatus,
 } from "../controllers/product.Controller.js";
 import multer from "multer";
 
@@ -20,10 +19,9 @@ router.post("/", uploadLocal.single("productImage"), createProduct);
 router.get("/", getAllProducts);
 router.put("/:id", uploadLocal.single("image"), updateProduct);
 router.delete("/:id", deleteProduct);
-router.post("/bulk-upload", upload.single("file"), startBulkUpload);
+router.post("/bulk-upload", upload.single("file"),bulkUploadProducts );
 router.get("/bulk-status/:jobId", getBulkStatus);
 
 router.get("/report/csv", downloadProductCSV);
 router.get("/report/xlsx", downloadProductExcel);
-router.post("/bulk-upload", upload.single("file"), bulkUploadProducts);
 export default router;

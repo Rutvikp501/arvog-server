@@ -119,40 +119,9 @@ export const deleteProduct = async (req, res) => {
   }
 };
 
-export const startBulkUpload = async (req, res) => {
-  const filePath = req.file.path;
-  const jobId = Date.now().toString();
 
-  jobStatus[jobId] = { status: 'processing', progress: 0 };
 
-  const worker = new Worker(path.resolve(__dirname, '../services/bulkUploadService.js'), {
-    workerData: { filePath, jobId },
-  });
 
-  worker.on('message', (data) => {
-    jobStatus[jobId] = data;
-  });
-
-  worker.on('error', () => {
-    jobStatus[jobId] = { status: 'failed' };
-  });
-
-  worker.on('exit', () => {
-    if (jobStatus[jobId].status !== 'failed') {
-      jobStatus[jobId] = { status: 'completed', progress: 100 };
-    }
-  });
-
-  res.status(202).json({
-    message: 'Bulk upload started',
-    jobId,
-    checkStatus: `/api/bulk-status/${jobId}`,
-  });
-};
-
-export const getBulkStatus = (req, res) => {
-  res.json(jobStatus[req.params.jobId] || { status: 'not-found' });
-};
 
 export const downloadProductCSV = async (req, res) => {
   try {
@@ -243,39 +212,52 @@ export const downloadProductExcel = async (req, res) => {
   }
 };
 
+// BULK UPLOAD (CSV + EXCEL)
 export const bulkUploadProducts = async (req, res) => {
   try {
-    const workbook = XLSX.read(req.file.buffer, { type: 'buffer' });
-    const sheet = workbook.Sheets[workbook.SheetNames[0]];
-    const rows = XLSX.utils.sheet_to_json(sheet);
+    if (!req.file) {
+      return res.status(400).json({ message: "No file uploaded" });
+    }
+
+    const fileExt = path.extname(req.file.originalname).toLowerCase();
+    let rows = [];
+
+    // Process Excel or CSV automatically
+    if (fileExt === ".xlsx" || fileExt === ".xls") {
+      const workbook = XLSX.read(req.file.buffer, { type: "buffer" });
+      const sheet = workbook.Sheets[workbook.SheetNames[0]];
+      rows = XLSX.utils.sheet_to_json(sheet);
+    } else if (fileExt === ".csv") {
+      const workbook = XLSX.read(req.file.buffer, { type: "buffer" });
+      const sheet = workbook.Sheets[workbook.SheetNames[0]];
+      rows = XLSX.utils.sheet_to_json(sheet);
+    } else {
+      return res.status(400).json({ message: "Invalid file format. Use CSV or Excel." });
+    }
 
     const failed = [];
     const inserted = [];
 
+    // Loop each row
     for (const row of rows) {
       try {
         const { name, price, categoryId, imageUrl } = row;
 
-        // Validate fields
         if (!name || !price || !categoryId) {
-          failed.push({ row, reason: 'Missing required fields' });
+          failed.push({ row, reason: "Missing required fields" });
           continue;
         }
 
         const category = await Category.findByPk(categoryId);
         if (!category) {
-          failed.push({ row, reason: 'Invalid categoryId' });
+          failed.push({ row, reason: "Invalid categoryId" });
           continue;
         }
 
         let uploadedImage = null;
 
-        // If imageUrl exists in excel, upload it to S3
-        if (imageUrl && typeof imageUrl === 'string') {
-          uploadedImage = await s3Upload(
-            { path: imageUrl }, // custom processing logic
-            'products'
-          );
+        if (imageUrl && typeof imageUrl === "string") {
+          uploadedImage = await s3Upload({ path: imageUrl }, "products");
         }
 
         const product = await Product.create({
@@ -293,13 +275,17 @@ export const bulkUploadProducts = async (req, res) => {
     }
 
     res.status(200).json({
-      message: 'Bulk upload completed',
+      message: "Bulk upload completed",
       inserted: inserted.length,
       failed: failed.length,
       failedRows: failed,
     });
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: 'Bulk upload failed', error: err.message });
+    console.log(err);
+    res.status(500).json({ message: "Bulk upload failed", error: err.message });
   }
+};
+
+export const getBulkStatus = (req, res) => {
+  res.json(jobStatus[req.params.jobId] || { status: 'not-found' });
 };
