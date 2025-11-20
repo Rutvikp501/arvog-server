@@ -7,7 +7,6 @@ import { generateToken } from "../config/jwt.config.js";
 // REGISTER
 export const registerUser = async (req, res) => {
   try {
-    console.log(req.body);
     
     const { name, email, password, phone, role, isAdmin } = req.body;
 

@@ -11,8 +11,8 @@ import {
   getBulkStatus,
 } from "../controllers/product.Controller.js";
 import multer from "multer";
+const upload = multer({ storage: multer.memoryStorage() });
 
-const upload = multer({ dest: "uploads/" });
 const router = express.Router();
 
 router.post("/", uploadLocal.single("productImage"), createProduct);
@@ -20,6 +20,7 @@ router.get("/", getAllProducts);
 router.put("/:id", uploadLocal.single("image"), updateProduct);
 router.delete("/:id", deleteProduct);
 router.post("/bulk-upload", upload.single("file"),bulkUploadProducts );
+
 router.get("/bulk-status/:jobId", getBulkStatus);
 
 router.get("/report/csv", downloadProductCSV);

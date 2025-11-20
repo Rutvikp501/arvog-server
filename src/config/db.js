@@ -12,7 +12,14 @@ const sequelize = new Sequelize(
     port: process.env.PG_PORT,
     dialect: "postgres",
     logging: false,
+    dialectOptions: {
+    ssl: {
+      require: true,
+      rejectUnauthorized: false // set true if you provide CA
+    }
   }
+  },
+  
 );
 
 export default sequelize;

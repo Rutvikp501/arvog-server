@@ -30,7 +30,6 @@ export const createProduct = async (req, res) => {
 
     if (req.file) {
       const uploaded = await s3Upload(req.file, FOLDER);
-      console.log(uploaded);
 
       image = { publicId: uploaded.key, url: uploaded.url };
       safeUnlink(req.file.path); // delete local copy
@@ -219,72 +218,62 @@ export const bulkUploadProducts = async (req, res) => {
       return res.status(400).json({ message: "No file uploaded" });
     }
 
-    const fileExt = path.extname(req.file.originalname).toLowerCase();
+    const ext = path.extname(req.file.originalname).toLowerCase();
     let rows = [];
+    const workbook = XLSX.read(req.file.buffer, { type: "buffer" });
+    const sheet = workbook.Sheets[workbook.SheetNames[0]];
+    rows = XLSX.utils.sheet_to_json(sheet);
 
-    // Process Excel or CSV automatically
-    if (fileExt === ".xlsx" || fileExt === ".xls") {
-      const workbook = XLSX.read(req.file.buffer, { type: "buffer" });
-      const sheet = workbook.Sheets[workbook.SheetNames[0]];
-      rows = XLSX.utils.sheet_to_json(sheet);
-    } else if (fileExt === ".csv") {
-      const workbook = XLSX.read(req.file.buffer, { type: "buffer" });
-      const sheet = workbook.Sheets[workbook.SheetNames[0]];
-      rows = XLSX.utils.sheet_to_json(sheet);
-    } else {
-      return res.status(400).json({ message: "Invalid file format. Use CSV or Excel." });
+    let inserted = 0;
+    let failed = [];
+
+for (const row of rows) {
+  try {
+    // Map CSV keys to DB fields
+    const name = row.name || row.Name;
+    const price = row.price || row.Price;
+    const categoryName = row.categoryId || row.Category;
+
+    if (!name || !price || !categoryName) {
+      failed.push({ row, reason: "Required fields missing" });
+      continue;
     }
 
-    const failed = [];
-    const inserted = [];
-
-    // Loop each row
-    for (const row of rows) {
-      try {
-        const { name, price, categoryId, imageUrl } = row;
-
-        if (!name || !price || !categoryId) {
-          failed.push({ row, reason: "Missing required fields" });
-          continue;
-        }
-
-        const category = await Category.findByPk(categoryId);
-        if (!category) {
-          failed.push({ row, reason: "Invalid categoryId" });
-          continue;
-        }
-
-        let uploadedImage = null;
-
-        if (imageUrl && typeof imageUrl === "string") {
-          uploadedImage = await s3Upload({ path: imageUrl }, "products");
-        }
-
-        const product = await Product.create({
-          name,
-          price,
-          categoryId,
-          imageUrl: uploadedImage?.url || imageUrl || null,
-          imageKey: uploadedImage?.key || null,
-        });
-
-        inserted.push(product);
-      } catch (err) {
-        failed.push({ row, reason: err.message });
-      }
+    // Lookup category by name instead of ID if needed
+    const category = await Category.findOne({ where: { name: categoryName } });
+    if (!category) {
+      failed.push({ row, reason: "Invalid category" });
+      continue;
     }
 
-    res.status(200).json({
-      message: "Bulk upload completed",
-      inserted: inserted.length,
+    const product = await Product.create({
+      name,
+      price: Number(price),
+      categoryId: category.id,
+      imageUrl: row.imageUrl || null,
+      imageKey: row.imageKey || null,
+    });
+
+    inserted++;
+  } catch (error) {
+    failed.push({ row, reason: error.message });
+  }
+}
+
+
+    return res.status(200).json({
+      message: "Bulk Upload Completed",
+      inserted,
       failed: failed.length,
       failedRows: failed,
     });
-  } catch (err) {
-    console.log(err);
-    res.status(500).json({ message: "Bulk upload failed", error: err.message });
+
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ message: "Bulk upload failed", error: error.message });
   }
 };
+
 
 export const getBulkStatus = (req, res) => {
   res.json(jobStatus[req.params.jobId] || { status: 'not-found' });
